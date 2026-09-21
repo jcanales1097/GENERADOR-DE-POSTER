@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Póster</title>
+<meta name="description" content="Genera un PDF listo para imprimir de un póster grande dividido en hojas normales, a partir de una imagen en su calidad original.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23007AFF'/%3E%3Cpath d='M7 8h10M7 12h10M7 16h6' stroke='white' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+  :root{
+    --mac-blue:#0071e3;
+    --mac-blue-dark:#0a84ff;
+    --window-radius:14px;
+    --titlebar-h:44px;
+
+    --bg-wallpaper-1:#dfe6ee;
+    --bg-wallpaper-2:#b9c6d6;
+    --window-bg: rgba(246,246,248,0.86);
+    --panel-bg: rgba(255,255,255,0.78);
+    --panel-bg-solid:#ffffff;
+    --sep: rgba(60,60,67,0.14);
+    --ink:#1d1d1f;
+    --muted:#6e6e73;
+    --muted-2:#8a8a8e;
+    --accent:var(--mac-blue);
+    --accent-ink:#ffffff;
+    --accent-soft: rgba(0,113,227,0.10);
+    --action:#0071e3;
+    --action-ink:#ffffff;
+    --good:#28a745;
+    --ok:#0071e3;
+    --warn:#c68a1e;
+    --bad:#e0473c;
+    --shadow-window: 0 30px 70px -20px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.08);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.05);
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg-wallpaper-1:#1c2530;
+      --bg-wallpaper-2:#0d1117;
+      --window-bg: rgba(30,30,32,0.86);
+      --panel-bg: rgba(44,44,46,0.72);
+      --panel-bg-solid:#2c2c2e;
+      --sep: rgba(255,255,255,0.10);
+      --ink:#f5f5f7;
+      --muted:#a1a1a6;
+      --muted-2:#8a8a8e;
+      --accent:var(--mac-blue-dark);
+      --accent-ink:#ffffff;
+      --accent-soft: rgba(10,132,255,0.16);
+      --action:#0a84ff;
+      --action-ink:#ffffff;
+      --good:#32d74b;
+      --ok:#0a84ff;
+      --warn:#ffb340;
+      --bad:#ff6961;
+      --shadow-window: 0 30px 70px -20px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-wallpaper-1:#1c2530;
+    --bg-wallpaper-2:#0d1117;
+    --window-bg: rgba(30,30,32,0.86);
+    --panel-bg: rgba(44,44,46,0.72);
+    --panel-bg-solid:#2c2c2e;
+    --sep: rgba(255,255,255,0.10);
+    --ink:#f5f5f7;
+    --muted:#a1a1a6;
+    --muted-2:#8a8a8e;
+    --accent:var(--mac-blue-dark);
+    --accent-ink:#ffffff;
+    --accent-soft: rgba(10,132,255,0.16);
+    --action:#0a84ff;
+    --action-ink:#ffffff;
+    --good:#32d74b;
+    --ok:#0a84ff;
+    --warn:#ffb340;
+    --bad:#ff6961;
+    --shadow-window: 0 30px 70px -20px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:var(--font-ui);
+    color:var(--ink);
+    background:
+      radial-gradient(1200px 700px at 15% -10%, var(--bg-wallpaper-1), transparent 60%),
+      linear-gradient(160deg, var(--bg-wallpaper-1), var(--bg-wallpaper-2));
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding: 34px 16px 48px;
+  }
+
+  .mac-window{
+    width:100%;
+    max-width:1180px;
+    background:var(--window-bg);
+    -webkit-backdrop-filter:blur(30px) saturate(1.6);
+    backdrop-filter:blur(30px) saturate(1.6);
+    border-radius:var(--window-radius);
+    box-shadow:var(--shadow-window);
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.35);
+  }
+  :root[data-theme="dark"] .mac-window, :root:not([data-theme="light"]) .mac-window{
+    border-color: rgba(255,255,255,0.08);
+  }
+  @media (prefers-color-scheme:light){ .mac-window{ border-color: rgba(255,255,255,0.35);} }
+
+  .titlebar{
+    height:var(--titlebar-h);
+    display:flex;
+    align-items:center;
+    padding:0 16px;
+    position:relative;
+    background:linear-gradient(var(--panel-bg-solid), var(--panel-bg-solid));
+    border-bottom:1px solid var(--sep);
+    -webkit-user-select:none; user-select:none;
+  }
+  .traffic{display:flex; gap:8px;}
+  .traffic span{
+    width:12px; height:12px; border-radius:50%;
+    box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.12);
+  }
+  .traffic .red{background:#ff5f57;}
+  .traffic .yellow{background:#febc2e;}
+  .traffic .green{background:#28c840;}
+  .titlebar .win-title{
+    position:absolute; left:0; right:0; text-align:center;
+    font-size:13px; font-weight:600; color:var(--muted); letter-spacing:0.01em;
+    pointer-events:none;
+  }
+  .titlebar .privacy-pill{
+    margin-left:auto; display:flex; align-items:center; gap:6px;
+    font-size:11px; color:var(--good); font-weight:500;
+    background:var(--accent-soft); border-radius:999px; padding:4px 10px 4px 8px;
+  }
+  .titlebar .privacy-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--good);}
+
+  .app-header{
+    padding:22px 28px 6px;
+  }
+  .app-header .eyebrow{
+    font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent);
+  }
+  .app-header h1{
+    font-family:var(--font-display); font-size:26px; font-weight:700; margin:4px 0 6px; letter-spacing:-0.01em;
+  }
+  .app-header p{
+    margin:0; color:var(--muted); font-size:13.5px; max-width:62ch; line-height:1.5;
+  }
+
+  .app-body{
+    padding:18px 28px 24px;
+    display:grid;
+    grid-template-columns: minmax(0,368px) minmax(0,1fr);
+    gap:20px;
+    align-items:start;
+  }
+  @media (max-width:860px){ .app-body{grid-template-columns:1fr;} }
+
+  .config-stack{display:flex; flex-direction:column; gap:16px;}
+
+  .pane{
+    background:var(--panel-bg);
+    border:1px solid var(--sep);
+    border-radius:12px;
+    box-shadow:var(--shadow-1);
+    overflow:hidden;
+  }
+  .group h2{
+    font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--muted-2); margin:0; padding:12px 16px 8px;
+  }
+  .group + .group{border-top:1px solid var(--sep); margin-top:2px;}
+
+  .row-item{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:10px 16px; border-top:1px solid var(--sep);
+  }
+  .row-item:first-of-type{border-top:none;}
+  .row-item .ri-label{font-size:13.5px; color:var(--ink);}
+  .row-item .ri-sub{font-size:11.5px; color:var(--muted); margin-top:1px;}
+  .row-item .ri-control{flex:0 0 auto; display:flex; align-items:center; gap:8px;}
+
+  select, input[type=number], input[type=text]{
+    font-family:var(--font-ui); font-size:13.5px; color:var(--ink);
+    background:var(--panel-bg-solid); border:1px solid var(--sep); border-radius:7px;
+    padding:6px 8px;
+  }
+  select:focus, input:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  .num-field{position:relative; width:96px;}
+  .num-field input{width:100%; padding-right:30px; text-align:right; font-variant-numeric:tabular-nums;}
+  .num-field span{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    font-size:10.5px; color:var(--muted-2); pointer-events:none;
+  }
+  .wide-select{width:190px;}
+
+  /* macOS-style toggle switch */
+  input[type=checkbox].switch{
+    appearance:none; -webkit-appearance:none;
+    position:relative; width:38px; height:22px; border-radius:999px;
+    background:#d0d0d4; cursor:pointer; outline:none; flex:0 0 38px; margin:0;
+    transition:background .16s ease;
+  }
+  :root[data-theme="dark"] input[type=checkbox].switch, :root:not([data-theme="light"]) input[type=checkbox].switch{background:#48484a;}
+  input[type=checkbox].switch::before{
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.35); transition:transform .16s ease;
+  }
+  input[type=checkbox].switch:checked{background:var(--accent);}
+  input[type=checkbox].switch:checked::before{transform:translateX(16px);}
+
+  /* macOS segmented control */
+  .seg{display:flex; background:rgba(120,120,128,0.14); border-radius:8px; padding:2px; width:180px;}
+  .seg button{
+    flex:1; border:none; background:transparent; color:var(--muted); font-family:var(--font-ui);
+    font-size:12.5px; padding:6px 6px; border-radius:6px; cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--panel-bg-solid); color:var(--ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,0.12);}
+
+  .lockbtn{
+    width:30px; height:30px; border-radius:7px; border:1px solid var(--sep); background:var(--panel-bg-solid);
+    color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 30px;
+  }
+  .lockbtn[aria-pressed="true"]{color:var(--accent); border-color:var(--accent); background:var(--accent-soft);}
+
+  .presets{display:flex; gap:6px; flex-wrap:wrap; padding:2px 16px 12px;}
+  .chip{
+    font-size:11.5px; padding:5px 10px; border-radius:999px; border:1px solid var(--sep);
+    background:var(--panel-bg-solid); color:var(--ink); cursor:pointer; font-family:var(--font-ui);
+  }
+  .chip:hover{border-color:var(--accent); color:var(--accent);}
+
+  .dropzone-wrap{padding:14px 16px 16px;}
+  .dropzone{
+    border:1.5px dashed var(--sep); border-radius:10px; padding:22px 14px; text-align:center;
+    cursor:pointer; background:rgba(120,120,128,0.06); transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{border-color:var(--accent); background:var(--accent-soft);}
+  .dropzone svg{color:var(--muted); margin-bottom:6px;}
+  .dropzone strong{display:block; font-size:13px; margin-bottom:2px;}
+  .dropzone span{font-size:11.5px; color:var(--muted);}
+  .file-summary{
+    display:flex; gap:10px; align-items:center; padding:9px; border-radius:9px;
+    background:var(--panel-bg-solid); border:1px solid var(--sep);
+  }
+  .file-summary img{width:44px; height:44px; object-fit:cover; border-radius:6px; border:1px solid var(--sep);}
+  .file-summary .meta{flex:1; min-width:0;}
+  .file-summary .meta .name{font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .file-summary .meta .dims{font-family:var(--font-mono); font-size:11px; color:var(--muted); margin-top:1px;}
+  .file-summary button{border:none; background:none; color:var(--accent); cursor:pointer; font-size:11.5px; padding:0;}
+  input[type=file]{display:none;}
+
+  .action-btn{
+    width:100%; padding:12px 16px; border:none; border-radius:10px; background:var(--action);
+    color:var(--action-ink); font-size:14.5px; font-weight:600; cursor:pointer; font-family:var(--font-ui);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.15), 0 6px 16px -6px rgba(0,113,227,0.55);
+  }
+  .action-btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .action-btn:not(:disabled):hover{filter:brightness(1.05);}
+  .footnote{font-size:11.5px; color:var(--muted); text-align:center; margin:8px 0 0;}
+
+  /* right column */
+  .right-stack{display:flex; flex-direction:column; gap:16px;}
+  .summary-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--sep);
+    border:1px solid var(--sep); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-1);
+  }
+  @media (max-width:640px){ .summary-grid{grid-template-columns:repeat(2,1fr);} }
+  .stat{background:var(--panel-bg-solid); padding:13px 15px;}
+  .stat .label{font-size:10.5px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
+  .stat .value{font-family:var(--font-mono); font-size:19px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums;}
+  .stat .value small{font-size:11px; color:var(--muted); font-weight:500;}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; margin-top:5px;}
+  .badge .dot{width:6px;height:6px;border-radius:50%;}
+
+  .preview-pane{padding:16px 18px 18px;}
+  .preview-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; flex-wrap:wrap; gap:6px;}
+  .preview-head h2{padding:0; font-size:11px;}
+  .preview-head .grid-label{font-family:var(--font-mono); font-size:11.5px; color:var(--accent); font-weight:600;}
+
+  .preview-stage{
+    background-image:
+      linear-gradient(rgba(120,120,128,0.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,120,128,0.10) 1px, transparent 1px);
+    background-size:16px 16px;
+    border:1px solid var(--sep); border-radius:10px; padding:24px;
+    display:flex; align-items:center; justify-content:center; min-height:270px;
+  }
+  .poster-wrap{position:relative; box-shadow:0 2px 18px -6px rgba(0,0,0,.35); border-radius:2px; overflow:hidden;}
+  .poster-wrap img{display:block; width:100%; height:100%; object-fit:cover;}
+  .tile-grid{position:absolute; inset:0; display:grid;}
+  .tile{border:1px solid rgba(0,113,227,0.55); position:relative;}
+  :root[data-theme="dark"] .tile, :root:not([data-theme="light"]) .tile{border-color:rgba(10,132,255,0.6);}
+  .tile .tag{
+    position:absolute; top:3px; left:3px; font-family:var(--font-mono); font-size:9px; font-weight:700;
+    background:var(--accent); color:#fff; padding:1px 5px; border-radius:3px; line-height:1.5;
+  }
+  .tile .overlap-x, .tile .overlap-y{position:absolute; background:repeating-linear-gradient(45deg, #c68a1e 0 3px, transparent 3px 6px); opacity:.55;}
+  .tile .overlap-x{top:0; bottom:0; width:var(--ov-w,0px); right:0;}
+  .tile .overlap-y{left:0; right:0; height:var(--ov-h,0px); bottom:0;}
+
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    color:var(--muted); text-align:center; padding:26px 10px;
+  }
+  .empty-state svg{opacity:.45;}
+  .empty-state p{font-size:12.5px; max-width:32ch; line-height:1.5; margin:0;}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; font-size:11.5px; color:var(--muted);}
+  .legend .item{display:flex; align-items:center; gap:6px;}
+  .legend .swatch{width:13px; height:9px; border-radius:2px; border:1px solid var(--accent);}
+  .legend .swatch.overlap{background:repeating-linear-gradient(45deg, #c68a1e 0 3px, transparent 3px 6px); border-color:#c68a1e;}
+
+  .statusbar{
+    border-top:1px solid var(--sep);
+    padding:11px 28px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel-bg);
+  }
+  .statusbar p{
+    margin:0; font-size:11.5px; color:var(--muted-2); letter-spacing:0.01em;
+  }
+  .statusbar strong{color:var(--muted); font-weight:600;}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(12px);
+    background:rgba(29,29,31,0.92); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px;
+    box-shadow:0 10px 30px -8px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+    z-index:50; max-width:90vw; text-align:center; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto;}
+  .toast.error{background:rgba(224,71,60,0.95);}
+</style>
+</head>
+<body>
+
+<div class="mac-window">
+  <div class="titlebar">
+    <div class="traffic"><span class="red"></span><span class="yellow"></span><span class="green"></span></div>
+    <div class="win-title">Generador de Póster</div>
+    <div class="privacy-pill"><span class="dot"></span>Local — sin subir la imagen a ningún servidor</div>
+  </div>
+
+  <div class="app-header">
+    <div class="eyebrow">Impresión &middot; Herramienta interna</div>
+    <h1>Generador de Póster</h1>
+    <p>Sube una imagen y arma un afiche grande imprimiéndolo en varias hojas comunes (Carta, Oficio, A4…). El PDF sale listo para imprimir, con vista previa, marcas de corte, numeración de hojas e instrucciones de armado.</p>
+  </div>
+
+  <div class="app-body">
+    <!-- LEFT: CONFIG -->
+    <div class="config-stack">
+      <div class="pane">
+        <div class="group">
+          <h2>1 · Imagen</h2>
+          <div class="dropzone-wrap">
+            <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Subir imagen">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+              <strong>Arrastra una imagen o haz clic</strong>
+              <span>PNG o JPG · se incrusta en resolución original</span>
+            </div>
+            <div id="fileSummary" class="file-summary" style="display:none; margin-top:9px;">
+              <img id="fileThumb" alt="">
+              <div class="meta">
+                <div class="name" id="fileName">—</div>
+                <div class="dims" id="fileDims">—</div>
+              </div>
+              <button id="fileClear" type="button">Quitar</button>
+            </div>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg">
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>2 · Papel de impresión</h2>
+          <div class="row-item">
+            <div><div class="ri-label">Tamaño de hoja</div></div>
+            <div class="ri-control">
+              <select id="paperSize" class="wide-select">
+                <option value="carta">Carta (215.9 × 279.4 mm)</option>
+                <option value="oficio">Oficio (215.9 × 330.2 mm)</option>
+                <option value="a4">A4 (210 × 297 mm)</option>
+                <option value="legal">Legal (215.9 × 355.6 mm)</option>
+                <option value="tabloide">Tabloide (279.4 × 431.8 mm)</option>
+                <option value="custom">Personalizado…</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-item" id="customPaperRow" style="display:none;">
+            <div><div class="ri-label">Medidas personalizadas</div></div>
+            <div class="ri-control">
+              <div class="num-field"><input type="number" id="customW" min="50" value="215.9" step="0.1"><span>mm</span></div>
+              <div class="num-field"><input type="number" id="customH" min="50" value="279.4" step="0.1"><span>mm</span></div>
+            </div>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Orientación</div></div>
+            <div class="ri-control">
+              <div class="seg" id="orientSeg">
+                <button type="button" data-v="vertical" aria-pressed="true">Vertical</button>
+                <button type="button" data-v="horizontal" aria-pressed="false">Horizontal</button>
+              </div>
+            </div>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Margen no imprimible</div><div class="ri-sub">Borde que tu impresora no cubre</div></div>
+            <div class="ri-control"><div class="num-field"><input type="number" id="margin" min="0" max="20" step="0.5" value="5"><span>mm</span></div></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>3 · Tamaño final del póster</h2>
+          <div class="row-item">
+            <div><div class="ri-label">Ancho × Alto</div></div>
+            <div class="ri-control">
+              <div class="num-field" style="width:74px;"><input type="number" id="posterW" min="1" step="0.5"><span>cm</span></div>
+              <button type="button" class="lockbtn" id="lockAspect" aria-pressed="true" title="Mantener proporción">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </button>
+              <div class="num-field" style="width:74px;"><input type="number" id="posterH" min="1" step="0.5"><span>cm</span></div>
+            </div>
+          </div>
+          <div class="presets">
+            <button type="button" class="chip" data-dpi="300">Calidad alta (300 DPI)</button>
+            <button type="button" class="chip" data-dpi="150">Tamaño grande (150 DPI)</button>
+            <button type="button" class="chip" data-dpi="100">Máximo posible (100 DPI)</button>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Usar hojas completas</div><div class="ri-sub">Evita una tira angosta al final</div></div>
+            <div class="ri-control"><input type="checkbox" class="switch" id="snapSheets"></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>4 · Empalme y guías</h2>
+          <div class="row-item">
+            <div><div class="ri-label">Solape entre hojas</div><div class="ri-sub">Para alinear al pegar</div></div>
+            <div class="ri-control"><div class="num-field"><input type="number" id="overlap" min="0" max="30" step="1" value="0"><span>mm</span></div></div>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Marcas de corte</div></div>
+            <div class="ri-control"><input type="checkbox" class="switch" id="showCrop" checked></div>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Numerar hojas</div><div class="ri-sub">Fila-columna, para armar el póster</div></div>
+            <div class="ri-control"><input type="checkbox" class="switch" id="showLabels" checked></div>
+          </div>
+          <div class="row-item">
+            <div><div class="ri-label">Hoja guía</div><div class="ri-sub">Vista previa del resultado + instrucciones</div></div>
+            <div class="ri-control"><input type="checkbox" class="switch" id="includeGuide" checked></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="action-btn" id="generateBtn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V4h12v5M6 18h12v-5H6v5Z"/><path d="M6 14H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-2"/></svg>
+        Generar PDF para imprimir
+      </button>
+      <p class="footnote" id="footnoteText">Sube una imagen para habilitar la generación.</p>
+    </div>
+
+    <!-- RIGHT: SUMMARY + PREVIEW -->
+    <div class="right-stack">
+      <div class="summary-grid">
+        <div class="stat"><div class="label">Hojas necesarias</div><div class="value" id="statSheets">—</div></div>
+        <div class="stat"><div class="label">Cuadrícula</div><div class="value" id="statGrid">—</div></div>
+        <div class="stat"><div class="label">Tamaño final</div><div class="value" id="statSize">—</div></div>
+        <div class="stat">
+          <div class="label">Calidad de impresión</div>
+          <div class="value" id="statDpi">—</div>
+          <div class="badge" id="statBadge" style="display:none;"><span class="dot"></span><span id="statBadgeText"></span></div>
+        </div>
+      </div>
+
+      <div class="pane preview-pane">
+        <div class="preview-head">
+          <h2>Vista previa de la cuadrícula</h2>
+          <span class="grid-label" id="previewGridLabel"></span>
+        </div>
+        <div class="preview-stage" id="previewStage">
+          <div class="empty-state" id="previewEmpty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+            <p>Sube una imagen para ver cómo se repartirá en las hojas.</p>
+          </div>
+        </div>
+        <div class="legend" id="legend" style="display:none;">
+          <div class="item"><span class="swatch"></span>Borde de hoja</div>
+          <div class="item" id="legendOverlap"><span class="swatch overlap"></span>Zona de solape</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <p>Diseñado por <strong>Ing. Jonathan Canales</strong></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  const PT_PER_MM = 72/25.4;
+  const MM_PER_IN = 25.4;
+
+  const PAPERS = {
+    carta:   {w:215.9, h:279.4, label:"Carta"},
+    oficio:  {w:215.9, h:330.2, label:"Oficio"},
+    a4:      {w:210,   h:297,   label:"A4"},
+    legal:   {w:215.9, h:355.6, label:"Legal"},
+    tabloide:{w:279.4, h:431.8, label:"Tabloide"}
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    dropzone: $('dropzone'), fileInput: $('fileInput'), fileSummary: $('fileSummary'),
+    fileThumb: $('fileThumb'), fileName: $('fileName'), fileDims: $('fileDims'), fileClear: $('fileClear'),
+    paperSize: $('paperSize'), customPaperRow: $('customPaperRow'), customW: $('customW'), customH: $('customH'),
+    orientSeg: $('orientSeg'), margin: $('margin'),
+    posterW: $('posterW'), posterH: $('posterH'), lockAspect: $('lockAspect'), snapSheets: $('snapSheets'),
+    overlap: $('overlap'), showCrop: $('showCrop'), showLabels: $('showLabels'), includeGuide: $('includeGuide'),
+    generateBtn: $('generateBtn'), footnote: $('footnoteText'),
+    statSheets: $('statSheets'), statGrid: $('statGrid'), statSize: $('statSize'),
+    statDpi: $('statDpi'), statBadge: $('statBadge'), statBadgeText: $('statBadgeText'),
+    previewStage: $('previewStage'), previewEmpty: $('previewEmpty'), previewGridLabel: $('previewGridLabel'),
+    legend: $('legend'), legendOverlap: $('legendOverlap'),
+    toast: $('toast')
+  };
+
+  let state = {
+    file: null, arrayBuffer: null, mimeType: null, objectUrl: null,
+    imgPxW: 0, imgPxH: 0,
+    orientation: 'vertical',
+    aspectLocked: true
+  };
+
+  function showToast(msg, isError){
+    el.toast.textContent = msg;
+    el.toast.classList.toggle('error', !!isError);
+    el.toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> el.toast.classList.remove('show'), isError ? 4200 : 2600);
+  }
+
+  function currentPaperMM(){
+    let base;
+    if (el.paperSize.value === 'custom'){
+      base = { w: parseFloat(el.customW.value)||215.9, h: parseFloat(el.customH.value)||279.4 };
+    } else {
+      const p = PAPERS[el.paperSize.value];
+      base = { w: p.w, h: p.h };
+    }
+    const portraitW = Math.min(base.w, base.h);
+    const portraitH = Math.max(base.w, base.h);
+    if (state.orientation === 'vertical') return { w: portraitW, h: portraitH };
+    return { w: portraitH, h: portraitW };
+  }
+
+  function paperLabel(){
+    return el.paperSize.value === 'custom' ? 'Personalizado' : PAPERS[el.paperSize.value].label;
+  }
+
+  // ---------- File handling ----------
+  function pickFile(file){
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)){
+      showToast('Solo se aceptan imágenes PNG o JPG (para no recomprimir la calidad).', true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      state.arrayBuffer = e.target.result;
+      state.mimeType = file.type;
+      state.file = file;
+      if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+      const blobUrl = URL.createObjectURL(file);
+      state.objectUrl = blobUrl;
+      const img = new Image();
+      img.onload = function(){
+        state.imgPxW = img.naturalWidth;
+        state.imgPxH = img.naturalHeight;
+        onImageReady(blobUrl, file);
+      };
+      img.onerror = function(){
+        showToast('No se pudo leer esa imagen. Prueba con otro archivo.', true);
+      };
+      img.src = blobUrl;
+    };
+    reader.onerror = function(){ showToast('No se pudo leer el archivo.', true); };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function onImageReady(blobUrl, file){
+    el.fileThumb.src = blobUrl;
+    el.fileName.textContent = file.name;
+    el.fileDims.textContent = state.imgPxW + ' × ' + state.imgPxH + ' px';
+    el.fileSummary.style.display = 'flex';
+    el.dropzone.style.display = 'none';
+    el.generateBtn.disabled = false;
+    el.footnote.textContent = 'Se generará con la imagen en su resolución original, sin recompresión.';
+
+    const targetDpi = 200;
+    let wCm = (state.imgPxW / targetDpi) * 2.54;
+    wCm = Math.max(20, Math.round(wCm));
+    el.posterW.value = wCm;
+    el.posterH.value = (wCm * state.imgPxH / state.imgPxW).toFixed(1);
+
+    recalc();
+  }
+
+  function clearFile(){
+    state.file = null; state.arrayBuffer = null; state.imgPxW = 0; state.imgPxH = 0;
+    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+    el.fileSummary.style.display = 'none';
+    el.dropzone.style.display = 'block';
+    el.fileInput.value = '';
+    el.generateBtn.disabled = true;
+    el.footnote.textContent = 'Sube una imagen para habilitar la generación.';
+    renderEmptyPreview();
+    resetStats();
+  }
+
+  el.dropzone.addEventListener('click', ()=> el.fileInput.click());
+  el.dropzone.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.fileInput.click(); }});
+  el.fileInput.addEventListener('change', (e)=> pickFile(e.target.files[0]));
+  el.fileClear.addEventListener('click', clearFile);
+  ['dragenter','dragover'].forEach(ev => el.dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); el.dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => el.dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); el.dropzone.classList.remove('drag'); }));
+  el.dropzone.addEventListener('drop', (e)=>{
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) pickFile(f);
+  });
+
+  // ---------- Config listeners ----------
+  el.paperSize.addEventListener('change', ()=>{
+    el.customPaperRow.style.display = el.paperSize.value === 'custom' ? 'flex' : 'none';
+    recalc();
+  });
+  el.customW.addEventListener('input', recalc);
+  el.customH.addEventListener('input', recalc);
+  el.orientSeg.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.orientation = btn.dataset.v;
+    [...el.orientSeg.children].forEach(b=> b.setAttribute('aria-pressed', b===btn ? 'true':'false'));
+    recalc();
+  });
+  el.margin.addEventListener('input', recalc);
+  el.overlap.addEventListener('input', recalc);
+  el.showCrop.addEventListener('change', recalc);
+  el.showLabels.addEventListener('change', recalc);
+  el.snapSheets.addEventListener('change', recalc);
+
+  el.lockAspect.addEventListener('click', ()=>{
+    state.aspectLocked = !state.aspectLocked;
+    el.lockAspect.setAttribute('aria-pressed', String(state.aspectLocked));
+  });
+  el.posterW.addEventListener('input', ()=>{
+    if (state.aspectLocked && state.imgPxW){
+      const w = parseFloat(el.posterW.value)||0;
+      el.posterH.value = (w * state.imgPxH / state.imgPxW).toFixed(1);
+    }
+    recalc();
+  });
+  el.posterH.addEventListener('input', ()=>{
+    if (state.aspectLocked && state.imgPxH){
+      const h = parseFloat(el.posterH.value)||0;
+      el.posterW.value = (h * state.imgPxW / state.imgPxH).toFixed(1);
+    }
+    recalc();
+  });
+
+  document.querySelectorAll('.chip[data-dpi]').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      if (!state.imgPxW) { showToast('Primero sube una imagen.', true); return; }
+      const dpi = parseFloat(chip.dataset.dpi);
+      const wCm = (state.imgPxW / dpi) * 2.54;
+      el.posterW.value = wCm.toFixed(1);
+      el.posterH.value = (wCm * state.imgPxH / state.imgPxW).toFixed(1);
+      recalc();
+    });
+  });
+
+  // ---------- Grid math ----------
+  function computeGrid(){
+    const paper = currentPaperMM();
+    const marginMM = Math.max(0, parseFloat(el.margin.value)||0);
+    const overlapMM = Math.max(0, parseFloat(el.overlap.value)||0);
+    const printableW = Math.max(1, paper.w - 2*marginMM);
+    const printableH = Math.max(1, paper.h - 2*marginMM);
+    const stepX = Math.max(1, printableW - overlapMM);
+    const stepY = Math.max(1, printableH - overlapMM);
+
+    let posterWmm = (parseFloat(el.posterW.value)||0) * 10;
+    let posterHmm = (parseFloat(el.posterH.value)||0) * 10;
+    if (posterWmm <= 0 || posterHmm <= 0){
+      return null;
+    }
+
+    let cols = Math.max(1, Math.ceil((posterWmm - overlapMM) / stepX));
+    let rows = Math.max(1, Math.ceil((posterHmm - overlapMM) / stepY));
+
+    if (el.snapSheets.checked){
+      posterWmm = cols*stepX + overlapMM;
+      posterHmm = rows*stepY + overlapMM;
+    }
+
+    const dpiX = state.imgPxW ? (state.imgPxW / (posterWmm/MM_PER_IN)) : null;
+    const dpiY = state.imgPxH ? (state.imgPxH / (posterHmm/MM_PER_IN)) : null;
+    const dpi = (dpiX && dpiY) ? Math.min(dpiX, dpiY) : null;
+
+    return { paper, marginMM, overlapMM, printableW, printableH, stepX, stepY,
+             posterWmm, posterHmm, cols, rows, dpi };
+  }
+
+  function dpiQuality(dpi){
+    if (dpi >= 250) return { label:'Excelente — nítido de cerca', color:'var(--good)' };
+    if (dpi >= 150) return { label:'Buena — recomendado', color:'var(--ok)' };
+    if (dpi >= 100) return { label:'Aceptable visto de lejos', color:'var(--warn)' };
+    return { label:'Baja — se verá pixelado', color:'var(--bad)' };
+  }
+
+  function resetStats(){
+    el.statSheets.textContent = '—';
+    el.statGrid.textContent = '—';
+    el.statSize.textContent = '—';
+    el.statDpi.textContent = '—';
+    el.statBadge.style.display = 'none';
+    el.previewGridLabel.textContent = '';
+  }
+
+  function recalc(){
+    if (!state.imgPxW){ resetStats(); return; }
+    const g = computeGrid();
+    if (!g){ resetStats(); return; }
+
+    if (el.snapSheets.checked){
+      el.posterW.value = (g.posterWmm/10).toFixed(1);
+      el.posterH.value = (g.posterHmm/10).toFixed(1);
+    }
+
+    el.statSheets.textContent = String(g.cols * g.rows);
+    el.statGrid.textContent = g.cols + ' × ' + g.rows;
+    el.statSize.innerHTML = (g.posterWmm/10).toFixed(0) + ' × ' + (g.posterHmm/10).toFixed(0) + ' <small>cm</small>';
+    el.previewGridLabel.textContent = paperLabel() + ' · ' + g.cols + '×' + g.rows + ' hojas';
+
+    if (g.dpi != null){
+      el.statDpi.innerHTML = Math.round(g.dpi) + ' <small>dpi</small>';
+      const q = dpiQuality(g.dpi);
+      el.statBadge.style.display = 'inline-flex';
+      el.statBadge.querySelector('.dot').style.background = q.color;
+      el.statBadge.style.color = q.color;
+      el.statBadgeText.textContent = q.label;
+    }
+
+    renderPreview(g);
+  }
+
+  function renderEmptyPreview(){
+    el.previewStage.innerHTML = '';
+    el.previewStage.appendChild(el.previewEmpty);
+    el.previewEmpty.style.display = 'flex';
+    el.legend.style.display = 'none';
+  }
+
+  function renderPreview(g){
+    el.previewStage.innerHTML = '';
+    el.legend.style.display = 'flex';
+    el.legendOverlap.style.display = g.overlapMM > 0 ? 'flex' : 'none';
+
+    const maxStageW = 460, maxStageH = 360;
+    const scale = Math.min(maxStageW / g.posterWmm, maxStageH / g.posterHmm);
+    const wrap = document.createElement('div');
+    wrap.className = 'poster-wrap';
+    wrap.style.width = (g.posterWmm*scale) + 'px';
+    wrap.style.height = (g.posterHmm*scale) + 'px';
+
+    const img = document.createElement('img');
+    img.src = state.objectUrl;
+    img.alt = '';
+    wrap.appendChild(img);
+
+    const gridDiv = document.createElement('div');
+    gridDiv.className = 'tile-grid';
+    gridDiv.style.gridTemplateColumns = `repeat(${g.cols}, 1fr)`;
+    gridDiv.style.gridTemplateRows = `repeat(${g.rows}, 1fr)`;
+
+    const ovXpx = (g.overlapMM/g.printableW) * (g.posterWmm*scale/g.cols);
+    const ovYpx = (g.overlapMM/g.printableH) * (g.posterHmm*scale/g.rows);
+
+    for (let r=0; r<g.rows; r++){
+      for (let c=0; c<g.cols; c++){
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        if (el.showLabels.checked){
+          const tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.textContent = 'F' + (r+1) + '-C' + (c+1);
+          tile.appendChild(tag);
+        }
+        if (g.overlapMM > 0){
+          if (c < g.cols-1){
+            const ox = document.createElement('div');
+            ox.className = 'overlap-x';
+            ox.style.setProperty('--ov-w', Math.max(2,ovXpx) + 'px');
+            tile.appendChild(ox);
+          }
+          if (r < g.rows-1){
+            const oy = document.createElement('div');
+            oy.className = 'overlap-y';
+            oy.style.setProperty('--ov-h', Math.max(2,ovYpx) + 'px');
+            tile.appendChild(oy);
+          }
+        }
+        gridDiv.appendChild(tile);
+      }
+    }
+    wrap.appendChild(gridDiv);
+    el.previewStage.appendChild(wrap);
+  }
+
+  // ---------- Guide page helpers ----------
+  function wrapText(text, maxWidth, font, size){
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    words.forEach(w=>{
+      const test = cur ? cur + ' ' + w : w;
+      if (font.widthOfTextAtSize(test, size) > maxWidth && cur){
+        lines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function drawGuidePage(pdfDoc, image, font, fontBold, g, meta){
+    const { rgb } = PDFLib;
+    const paperWpt = g.paper.w * PT_PER_MM;
+    const paperHpt = g.paper.h * PT_PER_MM;
+    const marginPt = Math.max(g.marginMM * PT_PER_MM, 28);
+    const page = pdfDoc.insertPage(0, [paperWpt, paperHpt]);
+
+    const left = marginPt, right = paperWpt - marginPt;
+    const contentW = right - left;
+    const top = paperHpt - marginPt;
+    const ink = rgb(0.11,0.12,0.11);
+    const muted = rgb(0.42,0.41,0.38);
+    const accent = rgb(0,0.44,0.89);
+    const orange = rgb(0.78,0.54,0.12);
+
+    let cursorY = top;
+
+    page.drawText('Guía de armado', { x:left, y:cursorY-20, size:19, font:fontBold, color:ink });
+    cursorY -= 20;
+    page.drawText((meta.fileName || 'póster') + '  ·  generado ' + meta.dateStr, { x:left, y:cursorY-14, size:9.5, font, color:muted });
+    cursorY -= 34;
+
+    const aspect = g.posterWmm / g.posterHmm;
+    let thumbW = contentW * 0.92;
+    let thumbH = thumbW / aspect;
+    const maxThumbH = (paperHpt - marginPt*2) * 0.48;
+    if (thumbH > maxThumbH){ thumbH = maxThumbH; thumbW = thumbH * aspect; }
+    const thumbX = left + (contentW - thumbW)/2;
+    const thumbTop = cursorY;
+    const thumbY = thumbTop - thumbH;
+
+    page.drawText('Así se ve el resultado terminado:', { x:left, y:thumbTop+10, size:10.5, font:fontBold, color:ink });
+    page.drawImage(image, { x:thumbX, y:thumbY, width:thumbW, height:thumbH });
+    page.drawRectangle({ x:thumbX, y:thumbY, width:thumbW, height:thumbH, borderColor:ink, borderWidth:1 });
+
+    for (let c=1; c<g.cols; c++){
+      const x = thumbX + (c*g.stepX/g.posterWmm)*thumbW;
+      page.drawLine({ start:{x,y:thumbY}, end:{x,y:thumbY+thumbH}, thickness:0.6, color:accent, opacity:0.85, dashArray:[2,2] });
+    }
+    for (let r=1; r<g.rows; r++){
+      const y = thumbY + thumbH - (r*g.stepY/g.posterHmm)*thumbH;
+      page.drawLine({ start:{x:thumbX,y}, end:{x:thumbX+thumbW,y}, thickness:0.6, color:accent, opacity:0.85, dashArray:[2,2] });
+    }
+    if (el.showLabels.checked){
+      const cellW = thumbW/g.cols, cellH = thumbH/g.rows;
+      for (let r=0; r<g.rows; r++){
+        for (let c=0; c<g.cols; c++){
+          const lx = thumbX + c*cellW + 3;
+          const ly = thumbY + thumbH - r*cellH - 9;
+          page.drawText('F'+(r+1)+'-C'+(c+1), { x:lx, y:ly, size:6, font:fontBold, color:accent });
+        }
+      }
+    }
+
+    cursorY = thumbY - 26;
+
+    page.drawText('Cómo armarlo', { x:left, y:cursorY, size:12.5, font:fontBold, color:ink });
+    cursorY -= 16;
+
+    const q = dpiQuality(g.dpi || 0);
+    const lines = [
+      'Papel ' + meta.paperLabel + ' (' + meta.orientationLabel + ') — ' + g.cols + ' × ' + g.rows + ' hojas, ' + (g.cols*g.rows) + ' en total.',
+      'Tamaño final del póster: ' + (g.posterWmm/10).toFixed(0) + ' × ' + (g.posterHmm/10).toFixed(0) + ' cm (' + (g.posterWmm/25.4).toFixed(1) + ' × ' + (g.posterHmm/25.4).toFixed(1) + ' in).',
+      (g.dpi ? 'Calidad de impresión estimada: ' + Math.round(g.dpi) + ' DPI — ' + q.label + '.' : ''),
+      'Orden de armado: comienza en la hoja F1-C1 (esquina superior izquierda) y avanza por fila de izquierda a derecha; luego baja a la siguiente fila.',
+      'Recorta cada hoja por sus marcas de corte (las líneas cortas de cada esquina) antes de unirlas.',
+      (g.overlapMM > 0
+        ? 'Cada hoja tiene ' + g.overlapMM + ' mm de solape: superpón la franja marcada en naranja punteado sobre la hoja vecina para alinear antes de pegar.'
+        : 'Las hojas se unen borde con borde (sin solape); alinea los bordes recortados con cuidado.'),
+      'Margen no imprimible considerado: ' + g.marginMM + ' mm por borde de cada hoja.'
+    ].filter(Boolean);
+
+    const bodySize = 9.5, lineGap = 4, bulletIndent = 12;
+    lines.forEach(text=>{
+      const wrapped = wrapText(text, contentW - bulletIndent, font, bodySize);
+      page.drawEllipse({ x:left+2.5, y:cursorY-3.5, xScale:1.6, yScale:1.6, color: (text.indexOf('solape')>-1 || text.indexOf('borde con borde')>-1) ? orange : accent });
+      wrapped.forEach((ln)=>{
+        page.drawText(ln, { x:left+bulletIndent, y:cursorY-3.5-(bodySize*0.35), size:bodySize, font, color:ink });
+        cursorY -= (bodySize + lineGap);
+      });
+      cursorY -= 2;
+    });
+
+    page.drawText('Generado con Generador de Póster — diseñado por Ing. Jonathan Canales.', { x:left, y:marginPt-14, size:7.5, font, color:muted });
+  }
+
+  // ---------- Download (plain browser save, works on any static host) ----------
+  function saveBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=> URL.revokeObjectURL(url), 4000);
+  }
+
+  // ---------- PDF generation ----------
+  async function generatePdf(){
+    if (!state.arrayBuffer){ showToast('Primero sube una imagen.', true); return; }
+    const g = computeGrid();
+    if (!g){ showToast('Revisa el tamaño del póster.', true); return; }
+    if (g.cols*g.rows > 400){
+      showToast('Esa combinación necesita ' + (g.cols*g.rows) + ' hojas — reduce el tamaño o usa un papel más grande.', true);
+      return;
+    }
+
+    el.generateBtn.disabled = true;
+    const originalLabel = el.generateBtn.innerHTML;
+    el.generateBtn.innerHTML = 'Generando…';
+
+    try {
+      const { PDFDocument, rgb, StandardFonts } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      const image = state.mimeType === 'image/png'
+        ? await pdfDoc.embedPng(state.arrayBuffer)
+        : await pdfDoc.embedJpg(state.arrayBuffer);
+
+      const paperWpt = g.paper.w * PT_PER_MM;
+      const paperHpt = g.paper.h * PT_PER_MM;
+      const marginPt = g.marginMM * PT_PER_MM;
+      const posterWpt = g.posterWmm * PT_PER_MM;
+      const posterHpt = g.posterHmm * PT_PER_MM;
+      const stepXpt = g.stepX * PT_PER_MM;
+      const stepYpt = g.stepY * PT_PER_MM;
+      const crop = 8;
+      const overlapPt = g.overlapMM * PT_PER_MM;
+
+      for (let r=0; r<g.rows; r++){
+        for (let c=0; c<g.cols; c++){
+          const page = pdfDoc.addPage([paperWpt, paperHpt]);
+
+          const drawX = marginPt - c*stepXpt;
+          const drawY = marginPt - posterHpt + r*stepYpt + (g.printableH * PT_PER_MM);
+
+          page.drawImage(image, { x: drawX, y: drawY, width: posterWpt, height: posterHpt });
+
+          const left = marginPt, right = paperWpt - marginPt;
+          const bottom = marginPt, top = paperHpt - marginPt;
+
+          if (el.showCrop.checked){
+            const lineColor = rgb(0.13,0.13,0.13);
+            const corners = [[left,bottom],[right,bottom],[left,top],[right,top]];
+            corners.forEach(([x,y])=>{
+              const dx = x===left ? crop : -crop;
+              const dy = y===bottom ? crop : -crop;
+              page.drawLine({ start:{x, y}, end:{x, y:y+dy}, thickness:1, color:lineColor });
+              page.drawLine({ start:{x, y}, end:{x:x+dx, y}, thickness:1, color:lineColor });
+            });
+          }
+
+          if (g.overlapMM > 0){
+            const overlapColor = rgb(0.78,0.54,0.12);
+            if (c < g.cols-1){
+              page.drawLine({ start:{x:right-overlapPt, y:bottom}, end:{x:right-overlapPt, y:top}, thickness:0.8, color:overlapColor, dashArray:[3,3] });
+            }
+            if (r < g.rows-1){
+              page.drawLine({ start:{x:left, y:bottom+overlapPt}, end:{x:right, y:bottom+overlapPt}, thickness:0.8, color:overlapColor, dashArray:[3,3] });
+            }
+          }
+
+          if (el.showLabels.checked){
+            const label = 'F' + (r+1) + '-C' + (c+1) + '   ' + (r*g.cols+c+1) + '/' + (g.rows*g.cols);
+            page.drawText(label, { x:left+4, y:top-12, size:8, font:fontBold, color:rgb(0,0.44,0.89) });
+          }
+        }
+      }
+
+      if (el.includeGuide.checked){
+        const orientationLabel = state.orientation === 'vertical' ? 'vertical' : 'horizontal';
+        drawGuidePage(pdfDoc, image, font, fontBold, g, {
+          fileName: state.file.name,
+          dateStr: new Date().toLocaleDateString('es-HN', { year:'numeric', month:'short', day:'numeric' }),
+          paperLabel: paperLabel(),
+          orientationLabel: orientationLabel
+        });
+      }
+
+      const bytes = await pdfDoc.save();
+      const blob = new Blob([bytes], { type:'application/pdf' });
+      const fname = (state.file.name.replace(/\.[^.]+$/,'') || 'poster') + '-' + g.cols + 'x' + g.rows + '.pdf';
+
+      saveBlob(blob, fname);
+      showToast('PDF generado: ' + (g.rows*g.cols) + ' hojas listas para imprimir.');
+    } catch (err){
+      console.error(err);
+      showToast('Ocurrió un error generando el PDF. Intenta de nuevo.', true);
+    } finally {
+      el.generateBtn.disabled = false;
+      el.generateBtn.innerHTML = originalLabel;
+    }
+  }
+
+  el.generateBtn.addEventListener('click', generatePdf);
+
+  renderEmptyPreview();
+  resetStats();
+})();
+</script>
+</body>
+</html>
